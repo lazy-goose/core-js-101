@@ -28,8 +28,29 @@
  *      .catch((error) => console.log(error.message)) // 'Error: Wrong parameter is passed!
  *                                                    //  Ask her again.';
  */
-function willYouMarryMe(/* isPositiveAnswer */) {
-  throw new Error('Not implemented');
+async function $willYouMarryMe(isPositiveAnswer) {
+  const ERR = 'Wrong parameter is passed! Ask her again.';
+  const YES = 'Hooray!!! She said "Yes"!';
+  const REJ = 'Oh no, she said "No".';
+
+  if (typeof isPositiveAnswer !== 'boolean') {
+    throw new Error(ERR);
+  }
+
+  return isPositiveAnswer ? YES : REJ;
+}
+
+function willYouMarryMe(isPositiveAnswer) {
+  const ERR = 'Wrong parameter is passed! Ask her again.';
+  const YES = 'Hooray!!! She said "Yes"!';
+  const REJ = 'Oh no, she said "No".';
+
+  return new Promise((resolve, reject) => {
+    if (typeof isPositiveAnswer !== 'boolean') {
+      reject(new Error(ERR));
+    }
+    resolve(isPositiveAnswer ? YES : REJ);
+  });
 }
 
 
@@ -48,9 +69,10 @@ function willYouMarryMe(/* isPositiveAnswer */) {
  *    })
  *
  */
-function processAllPromises(/* array */) {
-  throw new Error('Not implemented');
+function processAllPromises(array) {
+  return Promise.all(array);
 }
+
 
 /**
  * Return Promise object that should be resolved with value received from
@@ -71,16 +93,17 @@ function processAllPromises(/* array */) {
  *    })
  *
  */
-function getFastestPromise(/* array */) {
-  throw new Error('Not implemented');
+function getFastestPromise(array) {
+  return Promise.race(array);
 }
+
 
 /**
  * Return Promise object that should be resolved with value that is
  * a result of action with values of all the promises that exists in array.
  * If some of promise is rejected you should catch it and process the next one.
  *
- * @param {Promise[]} array
+ * @param {Promise[]} promises
  * @param {Function} action
  * @return {Promise}
  *
@@ -92,11 +115,27 @@ function getFastestPromise(/* array */) {
  *    });
  *
  */
-function chainPromises(/* array, action */) {
-  throw new Error('Not implemented');
+function chainPromises(promises, action) {
+  const resolved = [];
+  const rejected = [];
+  return new Promise((resolve) => {
+    promises.forEach(async (promise) => {
+      try {
+        const res = await promise;
+        resolved.push(res);
+        if (resolved.length + rejected.length === promises.length) {
+          resolve(resolved.reduce(action));
+        }
+      } catch (e) {
+        rejected.push(new Error(e));
+      }
+    });
+  });
 }
 
+
 module.exports = {
+  $willYouMarryMe,
   willYouMarryMe,
   processAllPromises,
   getFastestPromise,
