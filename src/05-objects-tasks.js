@@ -6,6 +6,17 @@
  *                                                                                                *
  ************************************************************************************************ */
 
+const Utils = {
+  capitalize: (str) => str[0].toUpperCase() + str.slice(1),
+  joinColon: (list) => list.join(', '),
+  joinStart: (list) => {
+    const first = list[0];
+    const rest = list.slice(1, -2);
+    const lastTwo = list.slice(-2);
+    return [Utils.capitalize(first), ...rest, lastTwo.join(' and ')].join(', ');
+  },
+};
+
 
 /**
  * Returns the rectangle object with width and height parameters and getArea() method
@@ -20,8 +31,14 @@
  *    console.log(r.height);      // => 20
  *    console.log(r.getArea());   // => 200
  */
-function Rectangle(/* width, height */) {
-  throw new Error('Not implemented');
+function Rectangle(width, height) {
+  const object = { width, height };
+  Object.setPrototypeOf(object, {
+    getArea() {
+      return { ...this }.width * this.height;
+    },
+  });
+  return object;
 }
 
 
@@ -35,8 +52,8 @@ function Rectangle(/* width, height */) {
  *    [1,2,3]   =>  '[1,2,3]'
  *    { width: 10, height : 20 } => '{"height":10,"width":20}'
  */
-function getJSON(/* obj */) {
-  throw new Error('Not implemented');
+function getJSON(obj) {
+  return JSON.stringify(obj);
 }
 
 
@@ -51,8 +68,10 @@ function getJSON(/* obj */) {
  *    const r = fromJSON(Circle.prototype, '{"radius":10}');
  *
  */
-function fromJSON(/* proto, json */) {
-  throw new Error('Not implemented');
+function fromJSON(proto, json) {
+  const object = JSON.parse(json);
+  Object.setPrototypeOf(object, proto);
+  return object;
 }
 
 
@@ -110,35 +129,115 @@ function fromJSON(/* proto, json */) {
  *  For more examples see unit tests.
  */
 
-const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
-  },
+/**
+ * @typedef {'element' | 'id' | 'class' | 'attr' | 'pseudoClass' | 'pseudoElement'} Selectors
+ */
 
-  id(/* value */) {
-    throw new Error('Not implemented');
-  },
+/**
+ * @typedef {{[K in Selectors]: (value: string) => SelectorBuilder}} SelectorMethods
+ */
 
-  class(/* value */) {
-    throw new Error('Not implemented');
-  },
+/**
+ * @typedef {{
+ *  name: Selectors, unique: boolean, toString: (v: string) => string, errorName: string
+ * }} SelectorConfig
+ */
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
-  },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
-  },
+function SelectorBuilder({ order = -1, selector = '' } = {}) {
+  this.selector = selector;
+  this.order = order;
+}
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+/** @type {SelectorConfig[]} */
+SelectorBuilder.ORDERED_SELECTORS = [
+  {
+    name: 'element',
+    unique: true,
+    toString: (s) => s,
+    errorName: 'element',
   },
+  {
+    name: 'id',
+    unique: true,
+    toString: (s) => `#${s}`,
+    errorName: 'id',
+  },
+  {
+    name: 'class',
+    unique: false,
+    toString: (s) => `.${s}`,
+    errorName: 'class',
+  },
+  {
+    name: 'attr',
+    unique: false,
+    toString: (s) => `[${s}]`,
+    errorName: 'attribute',
+  },
+  {
+    name: 'pseudoClass',
+    unique: false,
+    toString: (s) => `:${s}`,
+    errorName: 'pseudo-class',
+  },
+  {
+    name: 'pseudoElement',
+    unique: true,
+    toString: (s) => `::${s}`,
+    errorName: 'pseudo-element',
+  },
+];
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
-  },
-};
+function check(order, isUnique = false) {
+  const SELECTORS = this.constructor.ORDERED_SELECTORS;
+
+  if (this.order > order) {
+    const orders = SELECTORS.map((o) => o.errorName);
+    const WRONG_ORDER = `Selector parts should be arranged in the following order: ${Utils.joinColon(orders)}`;
+    throw new Error(WRONG_ORDER);
+  }
+  /*
+   * Check of order forces selectors to be sequential.
+   * Error occurs if same unique selectors are in a chain.
+   */
+  if (isUnique && this.order === order) {
+    const uniques = SELECTORS.filter(({ unique }) => unique).map((o) => o.errorName);
+    const UNIQUES_REPEAT = `${Utils.joinStart(uniques)} should not occur more then one time inside the selector`;
+    throw new Error(UNIQUES_REPEAT);
+  }
+}
+
+function stringify() {
+  return this.selector;
+}
+
+function combine(selector1, combinator, selector2) {
+  return new this.constructor({
+    selector: `${selector1.selector} ${combinator} ${selector2.selector}`,
+  });
+}
+
+function selectorMaker({ order, unique, toString }) {
+  return function selectorHandler(value) {
+    this.check(order, unique);
+    return new this.constructor({
+      order,
+      selector: this.selector + toString(value),
+    });
+  };
+}
+
+SelectorBuilder.prototype.stringify = stringify;
+SelectorBuilder.prototype.check = check;
+SelectorBuilder.prototype.combine = combine;
+
+SelectorBuilder.ORDERED_SELECTORS.forEach(({ name, unique, toString }, order) => {
+  SelectorBuilder.prototype[name] = selectorMaker({ unique, toString, order });
+}, {});
+
+/** @type {SelectorBuilder & SelectorMethods} */
+const cssSelectorBuilder = new SelectorBuilder();
 
 
 module.exports = {
