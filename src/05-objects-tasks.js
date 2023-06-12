@@ -198,8 +198,8 @@ function check(order, isUnique = false) {
     throw new Error(WRONG_ORDER);
   }
   /*
-   * Check of order forces selectors to be sequential.
-   * Error occurs if same unique selectors are in a chain.
+   * The selectors are called in the correct order,
+   * which means that repeated calls can only be placed next to each other
    */
   if (isUnique && this.order === order) {
     const uniques = SELECTORS.filter(({ unique }) => unique).map((o) => o.errorName);
